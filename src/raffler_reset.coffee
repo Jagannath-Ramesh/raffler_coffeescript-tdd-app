@@ -1,0 +1,73 @@
+window.Raffler =
+ Models:{}
+ Collections:{}
+ Views:{}
+ Routers:{}
+ init: -> 
+    new Raffler.Routers.Entries
+    Backbone.history.start()
+
+$(document).ready ->
+  Raffler.init()
+
+class Raffler.Routers.Entries extends Backbone.Router
+  routes:
+    '': 'index'
+    'entries/:id': 'show'
+  initialize: ->
+    @collection = new Raffler.Collections.Entries()
+    @collection.fetch()             
+  index: ->
+    view = new Raffler.Views.EntriesIndex(collection: @collection)
+    $('#container').html(view.render().el)
+
+class Raffler.Views.EntriesIndex extends Backbone.View
+  template:  _.template($('#item-template').html())
+  events:
+    'click #new': 'createEntry'
+    'click #draw': 'drawWinner'
+    'click .list_item': 'deleteEntry'
+    'click #reset': 'reset'
+  initialize: ->
+    @collection.on('sync', @render, this)
+    @collection.on('add', @render, this) 
+    @collection.on('destroy',@render,this)
+  render: ->
+    $(@el).html(@template(entries: @collection.toJSON()))
+    this
+  createEntry: ->
+    @newName($('#new_entry').val())
+  newName: (name) ->
+    @collection.create name: name
+  drawWinner: ->
+    winner = @collection.shuffle()[0]
+    if winner
+      @setTrue(winner)
+      @saveModel(winner)
+  setTrue: (model) ->
+    model.set(winner:true)
+  setFalse: (model) ->
+    model.set(winner:false)
+  saveModel: (model) ->
+    model.save()
+  deleteEntry: (ev) ->
+    console.log $(ev.target).attr('id') 
+    item=@collection.find (@model) ->
+        @model.get("id") is $(ev.target).attr('id')
+        #@model
+    @delItem(item)
+  delItem: (item) ->
+    item.destroy()
+  reset: ->
+    for model in @collection.models
+      @setFalse(model)
+      @saveModel(model)
+
+class Raffler.Models.Entry extends Backbone.Model
+  defaults: 
+    name:''
+    winner: false
+
+class Raffler.Collections.Entries extends Backbone.Collection
+  model: Raffler.Models.Entry
+  localStorage: new Store("coffee-raffle-reset2") 
